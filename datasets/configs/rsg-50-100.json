@@ -1,0 +1,21 @@
+{
+  "mode": "create",
+  "name": "rsg-50-100",
+  "config": null,
+  "t_type": "rsg",
+  "t_len": 500,
+  "n_trials": 2000,
+  "intervals": null,
+  "motifs": null,
+  "task_args": [
+    "lt",
+    "100",
+    "gt",
+    "50"
+  ],
+  "p_len": 5,
+  "max_ready": 80,
+  "min_t": 50,
+  "max_t": 100,
+  "argv": "tasks.py create rsg-50-100 -a lt 100 gt 50"
+}

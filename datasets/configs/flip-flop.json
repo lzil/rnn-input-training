@@ -1,0 +1,20 @@
+{
+  "mode": "create",
+  "name": "flip-flop",
+  "config": null,
+  "t_type": "flip-flop",
+  "n_trials": 20,
+  "intervals": null,
+  "motifs": null,
+  "task_args": [
+    "dim",
+    "2",
+    "p",
+    ".01"
+  ],
+  "t_len": 400,
+  "dim": 2,
+  "p_len": 5,
+  "geop": 0.01,
+  "argv": "tasks.py create flip-flop -t flip-flop -a dim 2 p .01 -n 20"
+}

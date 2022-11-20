@@ -1,0 +1,24 @@
+{
+  "mode": "create",
+  "name": "rsg-100-9-200",
+  "config": null,
+  "t_type": "rsg",
+  "t_len": 500,
+  "n_trials": 2000,
+  "intervals": [
+    100,
+    112,
+    125,
+    138,
+    150,
+    162,
+    175,
+    188,
+    200
+  ],
+  "motifs": null,
+  "task_args": [],
+  "p_len": 5,
+  "max_ready": 80,
+  "argv": "tasks.py create rsg-100-9-200 -t rsg -i 100 112 125 138 150 162 175 188 200"
+}

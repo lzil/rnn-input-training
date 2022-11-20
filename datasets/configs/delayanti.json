@@ -1,0 +1,16 @@
+{
+  "mode": "create",
+  "name": "delayanti",
+  "config": null,
+  "t_type": "delay-anti",
+  "n_trials": 2000,
+  "task_args": [],
+  "intervals": null,
+  "angles": null,
+  "t_len": 300,
+  "fix_t": 50,
+  "stim_t": 150,
+  "argv": "tasks.py create delayanti -t delay-anti",
+  "L": 4,
+  "Z": 4
+}
