@@ -33,8 +33,6 @@ def load_model_path(path, config=None):
 # given a model and a dataset, see how well the model does on it
 # works with plot_trained.py
 def test_model(net, config, n_tests=128):
-    if config.sequential:
-        config.sequential = False
     test_set, test_loader = create_loaders(config.dataset, config, split_test=False, test_size=n_tests)
     x, y, trials = next(iter(test_loader))
 
@@ -42,6 +40,15 @@ def test_model(net, config, n_tests=128):
 
     t_losses = {}
     with torch.no_grad():
+        aa = net.M_u_T.weight[:,0].detach()
+        bb = net.M_u_T.weight[:,1].detach()
+        cc = net.M_u_T.weight[:,2].detach()
+        # dd = net.M_u.weight[:,7].detach()
+        # net.M_u_T.weight[:,0] = aa + 1 * (bb - aa) + 1 * (cc - aa)
+        # net.M_u_T.weight[:,0] = bb + (cc - bb) + (aa - bb)
+        # net.M_u.weight[:,4] = dd
+        # net.M_u_T.weight[:,:4] = dd
+        pdb.set_trace()
         contexts = [t.context for t in trials]
         idxs = [t.n for t in trials]
 

@@ -36,7 +36,8 @@ if args.config is None:
     config = get_config(args.model, ctype='model')
 else:
     config = json.load(open(args.config, 'r'))
-config = update_args(args, config)
+config = update_args(args, config, overwrite=None)
+config.dataset = args.dataset
 dsets = config.dataset
 
 net = load_model_path(args.model, config=config)
@@ -67,15 +68,30 @@ if not args.no_plot:
         ax.spines['bottom'].set_visible(False)
         
         if type(trial) in [DelayProAnti, MemoryProAnti]:
-            ax.plot(xr, x[0], color='grey', lw=1, ls='--', alpha=.4)
-            ax.plot(xr, x[1], color='salmon', lw=1, ls='--', alpha=.4)
-            ax.plot(xr, x[2], color='dodgerblue', lw=1, ls='--', alpha=.4)
-            ax.plot(xr, y[0], color='grey', lw=1.5, ls=':')
-            ax.plot(xr, y[1], color='salmon', lw=1.5, ls=':')
-            ax.plot(xr, y[2], color='dodgerblue', lw=1.5, ls=':')
-            ax.plot(xr, z[0], color='grey', lw=2)
-            ax.plot(xr, z[1], color='salmon', lw=2)
-            ax.plot(xr, z[2], color='dodgerblue', lw=2)
+            ax.plot(xr, x[1], color='grey', lw=1, ls='--', alpha=.4)
+            ax.plot(xr, x[2], color='salmon', lw=1, ls='--', alpha=.4)
+            ax.plot(xr, x[3], color='dodgerblue', lw=1, ls='--', alpha=.4)
+            ax.plot(xr, y[1], color='grey', lw=1.5, ls=':')
+            ax.plot(xr, y[2], color='salmon', lw=1.5, ls=':')
+            ax.plot(xr, y[3], color='dodgerblue', lw=1.5, ls=':')
+            ax.plot(xr, z[1], color='grey', lw=2)
+            ax.plot(xr, z[2], color='salmon', lw=2)
+            ax.plot(xr, z[3], color='dodgerblue', lw=2)
+
+        elif type(trial) is Memory2:
+            ax.plot(xr, x[1], color='grey', lw=1, ls='--', alpha=.4)
+            ax.plot(xr, x[2], color='salmon', lw=1, ls='--', alpha=.4)
+            ax.plot(xr, x[3], color='dodgerblue', lw=1, ls='--', alpha=.4)
+            ax.plot(xr, y[1], color='grey', lw=1.5, ls=':')
+            ax.plot(xr, y[2], color='salmon', lw=1.5, ls=':')
+            ax.plot(xr, y[3], color='dodgerblue', lw=1.5, ls=':')
+            ax.plot(xr, y[4], color='orangered', lw=1.5, ls=':')
+            ax.plot(xr, y[5], color='skyblue', lw=1.5, ls=':')
+            ax.plot(xr, z[1], color='grey', lw=2)
+            ax.plot(xr, z[2], color='salmon', lw=2)
+            ax.plot(xr, z[3], color='dodgerblue', lw=2)
+            ax.plot(xr, z[4], color='orangered', lw=2)
+            ax.plot(xr, z[5], color='skyblue', lw=2)
 
         elif type(trial) in [RSG, CSG]:
             ax.plot(xr, y[0], color='coral', alpha=1, lw=1, label='target')

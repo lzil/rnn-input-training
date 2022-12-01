@@ -74,7 +74,11 @@ class M2Net(nn.Module):
             if hasattr(self.args, 'net_fb') and self.args.net_fb:
                 self.M_u = nn.Linear(self.args.L + self.args.T + self.args.Z, D1, bias=self.args.ff_bias)
             else:
-                self.M_u = nn.Linear(self.args.L + self.args.T, D1, bias=self.args.ff_bias)
+                if self.args.D1_T == 0:
+                    self.M_u = nn.Linear(self.args.L + self.args.T, D1, bias=self.args.ff_bias)
+                else:
+                    self.M_u_T = nn.Linear(self.args.T, self.args.D1_T, bias=self.args.ff_bias)
+                    self.M_u_L = nn.Linear(self.args.L, D1, bias=self.args.ff_bias)
             self.M_ro = nn.Linear(D2, self.args.Z, bias=self.args.ff_bias)
         self.reservoir = M2Reservoir(self.args)
 
@@ -93,12 +97,27 @@ class M2Net(nn.Module):
     def forward(self, o, extras=False):
         # pass through the forward part
         # o should have shape [batch size, self.args.T + self.args.L]
-        if hasattr(self.args, 'net_fb') and self.args.net_fb:
-            self.z = self.z.expand(o.shape[0], self.z.shape[1])
-            oz = torch.cat((o, self.z), dim=1)
-            u = self.m1_act(self.M_u(oz))
-        else:
+        if self.args.D1_T == 0:
             u = self.m1_act(self.M_u(o))
+        else:
+            T_lim = self.args.D1 - self.args.D1_T
+            # pdb.set_trace()
+            u_L = self.M_u_L(o[:,:self.args.L]) # the actual input stuff
+            u_T = self.M_u_T(o[:,self.args.L:]) # just the task info
+            if self.args.c_noise > 0:
+                u_T = u_T + torch.normal(torch.zeros_like(u_T), self.args.c_noise)
+            # pdb.set_trace()
+            u_T = torch.tanh(u_T)
+
+            u = u_L
+            u[:,T_lim:] += u_T # edit just the first D1_T entries
+            # u = self.m1_act(torch.stack([self.M_u_L(o[:,:self.args.D1_T]), self.M_u_T(o[:,self.args.D1_T:])]), dim=1)
+        # if hasattr(self.args, 'net_fb') and self.args.net_fb:
+        #     self.z = self.z.expand(o.shape[0], self.z.shape[1])
+        #     oz = torch.cat((o, self.z), dim=1)
+        #     u = self.m1_act(self.M_u(oz))
+        # else:
+        #     u = self.m1_act(self.M_u(o))
         if extras:
             v, etc = self.reservoir(u, extras=True)
         else:
@@ -189,7 +208,9 @@ class M2Reservoir(nn.Module):
                 g = self.activation(self.J(self.x) + self.W_u(u))
             # adding any inherent reservoir noise
             if self.args.res_noise > 0:
-                g = g + torch.normal(torch.zeros_like(g), self.args.res_noise)
+                nn = torch.normal(torch.zeros_like(g), self.args.res_noise)
+                # pdb.set_trace()
+                g = g + nn
             delta_x = (-self.x + g) / self.tau_x
             self.x = self.x + delta_x
 

@@ -1,0 +1,22 @@
+{
+  "mode": "create",
+  "name": "mem-anti1",
+  "config": null,
+  "t_type": "memory2anti",
+  "n_trials": 2000,
+  "task_args": [
+    "y",
+    "0"
+  ],
+  "intervals": null,
+  "angles": null,
+  "t_len": 300,
+  "fix_t": 50,
+  "stim_t": 100,
+  "memory_t_min": -50,
+  "memory_t_max": 100,
+  "y_mode": 0,
+  "argv": "tasks.py create mem-anti1 -t memory2anti -a y 0",
+  "L": 4,
+  "Z": 6
+}

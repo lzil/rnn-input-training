@@ -35,7 +35,7 @@ class Task:
         self.n = n
 
         self.L = 4
-        self.Z = 4
+        self.Z = 6
 
     def get_x(self):
         pass
@@ -170,6 +170,54 @@ class MemoryProAnti(Task):
             y[1:,] = -y[1:,]
         return y
 
+# modalities in: 1, 2, 3
+# modalities out: 1, 2, 3
+class Memory2(Task):
+    def __init__(self, args, dset_id=None, n=None):
+        super().__init__(args.t_len, dset_id, n)
+        if args.angles is None:
+            theta = np.random.random() * 2 * np.pi
+        else:
+            theta = np.random.choice(args.angles) * np.pi / 180
+        stimulus = [np.cos(theta), np.sin(theta)]
+
+        self.t_type = args.t_type
+        assert 'memory2' in args.t_type
+        self.stimulus = stimulus
+        self.fix = args.fix_t
+        self.stim = self.fix + args.stim_t
+        self.memory = self.stim + np.random.randint(args.memory_t_min, args.memory_t_max)
+
+        self.y_mode = args.y_mode
+        self.fix_mode = args.fix_mode
+
+    def get_x(self, args=None):
+        x = np.zeros((4, self.t_len))
+        x[1,:self.memory] = 1
+        x[2,self.fix:self.stim] = self.stimulus[0]
+        x[3,self.fix:self.stim] = self.stimulus[1]
+        # noisy up/down corruption
+        if args is not None and args.x_noise != 0:
+            x = corrupt_x(args, x)
+        return x
+
+    def get_y(self, args=None):
+        y = np.zeros((6, self.t_len))
+        if self.fix_mode == 0:
+            y[1,:self.memory] = 1
+        else:
+            y[1] = 1
+        if self.y_mode == 0:
+            y[2,self.memory:] = self.stimulus[0]
+            y[3,self.memory:] = self.stimulus[1]
+        else:
+            y[4,self.memory:] = self.stimulus[0]
+            y[5,self.memory:] = self.stimulus[1]
+        # reversing output stimulus for anti condition
+        if self.t_type.endswith('anti'):
+            y[2:,] = -y[2:,]
+        return y
+
 
 # ways to add noise to x
 def corrupt_x(args, x):
@@ -206,6 +254,8 @@ def create_dataset(args):
         assert args.tau + args.max_d <= args.sep_t
         assert args.sep_t + args.tau + args.max_d <= args.cue_t
         TaskObj = DurationDisc
+    elif 'memory2' in t_type:
+        TaskObj = Memory2
     else:
         raise NotImplementedError
 
@@ -267,6 +317,15 @@ def get_task_args(args):
         targs.fix_t = get_tval(tarr, 'fix', 50, int)
         targs.stim_t = get_tval(tarr, 'stim', 100, int)
         targs.memory_t = get_tval(tarr, 'memory', 50, int)
+
+    elif 'memory2' in args.t_type:
+        targs.t_len = get_tval(tarr, 'l', 300, int)
+        targs.fix_t = get_tval(tarr, 'fix', 50, int)
+        targs.stim_t = get_tval(tarr, 'stim', 100, int)
+        targs.memory_t_min = get_tval(tarr, 'memory_min', -50, int)
+        targs.memory_t_max = get_tval(tarr, 'memory_max', 100, int)
+        targs.y_mode = get_tval(tarr, 'y', 0, int)
+        targs.fix_mode = get_tval(tarr, 'f', 0, int)
 
     elif args.t_type == 'dur-disc':
         targs.t_len = get_tval(tarr, 'l', 600, int)
@@ -365,7 +424,7 @@ if __name__ == '__main__':
             trial_x = trial.get_x()
             trial_y = trial.get_y()
 
-            if t_type in [RSG, CSG]:
+            if t_type in [RSG]:
                 trial_x = np.sum(trial_x, axis=0)
                 trial_y = trial_y[0]
                 ml, sl, bl = ax.stem(xr, trial_x, use_line_collection=True, linefmt='coral', label='ready/set')
@@ -380,31 +439,23 @@ if __name__ == '__main__':
                     if t_type is RSG:
                         ax.set_title(f'{trial.rsg}: [{trial.t_o}, {trial.t_p}] ', fontsize=9)
 
-            elif t_type is DelayCopy:
-                for j in range(trial.dim):
-                    ax.plot(xr, trial_x[j], color=cols[j], ls='--', lw=1)
-                    ax.plot(xr, trial_y[j], color=cols[j], lw=1)
-
-            elif t_type is FlipFlop:
-                for j in range(trial.dim):
-                    ax.plot(xr, trial_x[j], color=cols[j], lw=.5, ls='--', alpha=.9)
-                    ax.plot(xr, trial_y[j], color=cols[j], lw=1)
-
             elif t_type in [DelayProAnti, MemoryProAnti]:
-                ax.plot(xr, trial_x[0], color='grey', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_x[1], color='salmon', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_x[2], color='dodgerblue', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_y[0], color='grey', lw=1.5)
-                ax.plot(xr, trial_y[1], color='salmon', lw=1.5)
-                ax.plot(xr, trial_y[2], color='dodgerblue', lw=1.5)
+                ax.plot(xr, trial_x[1], color='grey', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_x[2], color='salmon', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_x[3], color='dodgerblue', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_y[1], color='grey', lw=1.5)
+                ax.plot(xr, trial_y[2], color='salmon', lw=1.5)
+                ax.plot(xr, trial_y[3], color='dodgerblue', lw=1.5)
 
-            elif t_type is DurationDisc:
-                ax.plot(xr, trial_x[0], color='grey', lw=1, ls='--')
-                ax.plot(xr, trial_x[1], color='grey', lw=1, ls='--')
-                ax.plot(xr, trial_x[2], color='salmon', lw=1, ls='--')
-                ax.plot(xr, trial_x[3], color='dodgerblue', lw=1, ls='--')
-                ax.plot(xr, trial_y[0], color='salmon', lw=1.5)
-                ax.plot(xr, trial_y[1], color='dodgerblue', lw=1.5)
+            elif t_type is Memory2:
+                ax.plot(xr, trial_x[1], color='grey', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_x[2], color='salmon', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_x[3], color='dodgerblue', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_y[1], color='grey', lw=1.5)
+                ax.plot(xr, trial_y[2], color='salmon', lw=1.5)
+                ax.plot(xr, trial_y[3], color='dodgerblue', lw=1.5)
+                ax.plot(xr, trial_y[4], color='coral', lw=1.5)
+                ax.plot(xr, trial_y[5], color='skyblue', lw=1.5)
 
         handles, labels = ax.get_legend_handles_labels()
         #fig.legend(handles, labels, loc='lower center')

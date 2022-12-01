@@ -121,6 +121,8 @@ class Trainer:
         outs = []
         us = []
         vs = []
+        norm = torch.tensor(0.)
+        norm_loss = 0.
         # setting up k for t-BPTT
         if training and self.args.k != 0:
             k = self.args.k
@@ -141,8 +143,29 @@ class Trainer:
                 for c in self.criteria:
                     k_loss += c(k_outs, k_targets, i=trial, t_ix=j+1-k)
                 trial_loss += k_loss.detach().item()
+                if hasattr(self.args, 'Mu_reg_gamma') and self.args.Mu_reg_gamma > 0 and len(self.args.train_ids) > 1:
+                    if self.args.D1_T == 0:
+                        reps = self.net.M_u.weight[:,self.args.L:][:,self.args.train_ids].T
+                    else:
+                        reps = self.net.M_u_T.weight[:,self.args.train_ids].T
+                    rep_sum_abs = torch.max(torch.abs(reps), dim=0)[0]
+                    # pdb.set_trace()
+                    norm = torch.linalg.vector_norm(rep_sum_abs, ord=1)
+                    # norms = []
+                    # for r1, rep in enumerate(reps):
+                    #     for r2, rep2 in enumerate(reps):
+                    #         if r1 >= r2:
+                    #             continue
+                    #         norms.append(torch.linalg.vector_norm(rep - rep2, ord=self.args.Mu_reg_ord))
+                    # norm = torch.mean(torch.stack(norms))
+                    norm_loss = self.args.Mu_reg_gamma * norm
+                    # pdb.set_trace()
+                    # analyze with torch.linalg.vector_norm(self.net.M_u.weight[:,4] - self.net.M_u.weight[:,5])
+                # pdb.set_trace()
                 if training:
                     k_loss.backward()
+                    if norm_loss > 0:
+                        norm_loss.backward()
                             
                 k_loss = 0.
                 self.net.reservoir.x = self.net.reservoir.x.detach()
@@ -156,7 +179,8 @@ class Trainer:
             etc = {
                 'outs': net_outs,
                 'us': net_us,
-                'vs': net_vs
+                'vs': net_vs,
+                'norm': norm
             }
             return trial_loss, etc
         return trial_loss
@@ -174,7 +198,8 @@ class Trainer:
             'goals': y,
             'us': etc['us'].detach(),
             'vs': etc['vs'].detach(),
-            'outs': etc['outs'].detach()
+            'outs': etc['outs'].detach(),
+            'norm': etc['norm'].detach()
         }
         return trial_loss, etc
 
@@ -189,7 +214,8 @@ class Trainer:
             'goals': y,
             'us': etc['us'].detach(),
             'vs': etc['vs'].detach(),
-            'outs': etc['outs'].detach()
+            'outs': etc['outs'].detach(),
+            'norm': etc['norm'].detach()
         }
 
         return loss, etc
@@ -224,6 +250,14 @@ class Trainer:
             for epoch_idx, (x, y, info) in enumerate(self.train_loader):
                 ix += 1
 
+                # if e == 0 and ix == 1:
+                #     with torch.no_grad():
+                #         aa = self.net.M_u.weight[:,4].detach()
+                #         bb = self.net.M_u.weight[:,5].detach()
+                #         cc = self.net.M_u.weight[:,6].detach()
+                #         self.net.M_u.weight[:,7] = bb + (aa - bb) + (cc - bb)
+                #     pdb.set_trace()
+
                 x, y = x.to(self.device), y.to(self.device)
                 iter_loss, etc = self.train_iteration(x, y, info, ix_callback=ix_callback)
 
@@ -241,7 +275,8 @@ class Trainer:
                     log_arr = [
                         f'*{ix}',
                         f'train {train_loss:.3f}',
-                        f'test {test_loss:.3f}'
+                        f'test {test_loss:.3f}',
+                        f'norm {test_etc["norm"]:.3f}'
                     ]
                     log_str = '\t| '.join(log_arr)
                     logging.info(log_str)

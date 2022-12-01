@@ -30,37 +30,43 @@ from trainer import Trainer
 def parse_args():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-L', type=int, default=4, help='latent input dimension')
-    parser.add_argument('--D1', type=int, default=50, help='u dimension')
+    parser.add_argument('--D1', type=int, default=20, help='u dimension')
+    parser.add_argument('--D1_T', type=int, default=0, help='u dimension but just for T')
     parser.add_argument('--D2', type=int, default=0, help='v dimension')
-    parser.add_argument('-N', type=int, default=300, help='number of neurons in reservoir')
-    parser.add_argument('-Z', type=int, default=4, help='output dimension')
+    parser.add_argument('-N', type=int, default=150, help='number of neurons in reservoir')
+    parser.add_argument('-Z', type=int, default=6, help='output dimension')
+
+    parser.add_argument('-T', type=int, default=10, help='number of tasks to use by default. needs to be > max task_id')
 
     parser.add_argument('--net', type=str, default='M2', choices=['basic', 'M2'])
-    parser.add_argument('--train_parts', type=str, nargs='+', default=['M_u', 'M_ro'])
+    parser.add_argument('--train_parts', type=str, nargs='+', default=['M_u'])
     parser.add_argument('-c', '--config', type=str, default=None, help='use args from config file')
     
     # make sure model_config path is specified if you use any paths! it ensures correct dimensions, bias, etc.
-    parser.add_argument('--model_config_path', type=str, default=None, help='config path corresponding to model load path')
+    # parser.add_argument('--model_config_path', type=str, default=None, help='config path corresponding to model load path')
     parser.add_argument('--model_path', type=str, default=None, help='start training from certain model. superseded by below')
     parser.add_argument('--M_path', type=str, default=None, help='start training from certain in/out representations')
     parser.add_argument('--res_path', type=str, default=None, help='start training from certain reservoir representation')
     
     # network arguments
     # parser.add_argument('--res_init_type', type=str, default='gaussian', help='')
-    parser.add_argument('--res_init_g', type=float, default=1.5)
+    parser.add_argument('--res_init_g', type=float, default=1)
     parser.add_argument('--res_noise', type=float, default=0)
     parser.add_argument('--x_noise', type=float, default=0)
+    parser.add_argument('--c_noise', type=float, default=0)
     parser.add_argument('--m_noise', type=float, default=0)
     parser.add_argument('--res_bias', action='store_true', help='bias term as part of recurrent connections, with J')
     parser.add_argument('--ff_bias', action='store_true', help='bias in feedforward part of the network, with M_u and M_ro')
-    parser.add_argument('--m1_act', type=str, default='none', help='act fn bw M_u and W_u')
+    parser.add_argument('--m1_act', type=str, default='tanh', help='act fn bw M_u and W_u')
     parser.add_argument('--m2_act', type=str, default='none', help='act fn bw W_ro and M_ro')
     parser.add_argument('--out_act', type=str, default='none', help='output activation at the very end of the network')
     parser.add_argument('--net_fb', action='store_true', help='feedback from network output to input')
 
     # dataset arguments
-    parser.add_argument('-d', '--dataset', type=str, default=['datasets/delaypro.pkl'], nargs='+', help='dataset(s) to use. >1 means different contexts')
+    parser.add_argument('-d', '--dataset', type=str, default=[], nargs='+', help='dataset(s) to use. >1 means different contexts')
     parser.add_argument('--same_test', action='store_true', help='use entire dataset for both training and testing')
+    parser.add_argument('--train_ids', type=int, default=[], nargs='+', help='ids to train. default is to train all')
+
     
     # training arguments
     parser.add_argument('--optimizer', choices=['adam', 'sgd', 'rmsprop', 'lbfgs'], default='adam')
@@ -75,6 +81,9 @@ def parse_args():
     parser.add_argument('--l2_reg', type=float, default=0, help='amount of l2 regularization')
     parser.add_argument('--s_rate', default=None, type=float, help='scheduler rate. dont use for no scheduler')
     parser.add_argument('--loss', type=str, nargs='+', default=['mse'])
+
+    parser.add_argument('--Mu_reg_gamma', type=float, default=0, help='l_ord reg on dif between input reps')
+    parser.add_argument('--Mu_reg_ord', type=int, default=2, help='what type of reg?')
 
     # adam lambdas
     parser.add_argument('--l1', type=float, default=1, help='weight of normal loss')
@@ -139,7 +148,7 @@ def adjust_args(args):
     if args.model_path is not None:
         config = get_config(args.model_path)
         args = update_args(args, config, overwrite=None) # overwrite Nones only
-        enforce_same = ['N', 'D1', 'D2', 'net', 'res_bias', 'use_reservoir']
+        enforce_same = ['N', 'D1', 'D2', 'net', 'res_bias']
         for v in enforce_same:
             if v in config and args.__dict__[v] != config[v]:
                 print(f'Warning: based on config, changed {v} from {args.__dict__[v]} -> {config[v]}')
@@ -149,21 +158,17 @@ def adjust_args(args):
     if args.train_parts == ['all']:
         args.train_parts = ['']
 
+    # default to training all datasets, with ids up to that range
+    if len(args.train_ids) == 0:
+        args.train_ids = list(range(len(args.dataset)))
+
+    assert len(args.train_ids) == len(args.dataset)
+
     # TODO
     if 'rsg' in args.dataset[0]:
         args.out_act = 'exp'
     else:
         args.out_act = 'none'
-
-    # number of task variables, latent variables, and output variables
-    args.T = len(args.dataset)
-    L, Z = 0, 0
-    for dset in args.dataset:
-        config = get_config(dset, ctype='dset', to_bunch=True)
-        L = max(L, config.L)
-        Z = max(Z, config.Z)
-    args.L = L
-    args.Z = Z
 
     # initializing logging
     # do this last, because we will be logging previous parameters into the config file
@@ -185,10 +190,6 @@ def adjust_args(args):
     # logging, when loading models from paths
     if args.model_path is not None:
         logging.info(f'Using model path {args.model_path}')
-        if args.model_config_path is not None:
-            logging.info(f'...with config file {args.model_config_path}')
-        else:
-            logging.info('...but not using any config file. Errors may ensue due to net param mismatches')
 
     return args
 

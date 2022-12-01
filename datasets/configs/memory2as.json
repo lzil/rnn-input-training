@@ -1,0 +1,21 @@
+{
+  "mode": "create",
+  "name": "memory2as",
+  "config": null,
+  "t_type": "memory2-antishort",
+  "n_trials": 2000,
+  "task_args": [
+    "delay",
+    "0"
+  ],
+  "intervals": null,
+  "angles": null,
+  "t_len": 300,
+  "fix_t": 50,
+  "stim_t": 50,
+  "memory_t": 100,
+  "delay": 0,
+  "argv": "tasks.py create memory2as -t memory2-antishort -a delay 0",
+  "L": 4,
+  "Z": 4
+}

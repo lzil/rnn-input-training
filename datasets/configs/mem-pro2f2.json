@@ -1,0 +1,25 @@
+{
+  "mode": "create",
+  "name": "mem-pro2f2",
+  "config": null,
+  "t_type": "memory2pro",
+  "n_trials": 2000,
+  "task_args": [
+    "y",
+    "1",
+    "f",
+    "1"
+  ],
+  "intervals": null,
+  "angles": null,
+  "t_len": 300,
+  "fix_t": 50,
+  "stim_t": 100,
+  "memory_t_min": -50,
+  "memory_t_max": 100,
+  "y_mode": 1,
+  "fix_mode": 1,
+  "argv": "tasks.py create mem-pro2f2 -t memory2pro -a y 1 f 1",
+  "L": 4,
+  "Z": 6
+}

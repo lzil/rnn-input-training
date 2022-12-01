@@ -39,19 +39,22 @@ class TrialDataset(Dataset):
     def __init__(self, datasets, args):
         self.args = args
         
+        self.dids = []      # ids of dsets, because we're not just using 0,1,2...
         self.dnames = []    # names of dsets
         self.data = []      # dsets themselves
+
         self.t_types = []   # task type
         self.lzs = []       # Ls and Zs for task trials
         self.x_ctxs = []    # precomputed context inputs
         self.max_idxs = np.zeros(len(datasets), dtype=int)
         self.t_lens = []
-        for i, (dname, ds) in enumerate(datasets):
+        for i, (did, dname, ds) in enumerate(datasets):
+            self.dids.append(did)
             self.dnames.append(dname)
             self.data.append(ds)
             # setting context cue for appropriate task
             x_ctx = np.zeros((args.T, ds[0].t_len))
-            x_ctx[i] = 1
+            x_ctx[did] = 1
             self.x_ctxs.append(x_ctx)
             self.t_lens.append(ds[0].t_len)
             # cumulative lengths of data, for indexing
@@ -67,7 +70,7 @@ class TrialDataset(Dataset):
         if isinstance(idx, slice):
             return [self[ii] for ii in range(len(self))[idx]]
         # index into the appropriate dataset to get the trial
-        context = self.get_context(idx)
+        context = self._get_context_idx(idx)
         # idx variable now references position within dataset
         if context != 0:
             idx = idx - self.max_idxs[context-1]
@@ -75,16 +78,21 @@ class TrialDataset(Dataset):
         trial = self.data[context][idx]
         x = trial.get_x(self.args)
         x_cts = self.x_ctxs[context]
+        # if self.args.c_noise > 0:
+        #     x_cts = x_cts + np.random.normal(scale=self.args.c_noise, size=x_cts.shape)
         # context comes after the stimulus
         x = np.concatenate((x, x_cts))
         y = trial.get_y(self.args)
 
-        trial.context = context
+        trial.context = self.dids[context]
         trial.dname = self.dnames[context]
         trial.lz = self.lzs[context]
         return x, y, trial
 
     def get_context(self, idx):
+        return self.dids[self._get_context_idx(idx)]
+
+    def _get_context_idx(self, idx):
         return np.argmax(self.max_idxs > idx)
 
 
@@ -104,15 +112,16 @@ def create_loaders(datasets, args, split_test=True, test_size=1, context_filter=
     dsets_train = []
     dsets_test = []
     for i, dpath in enumerate(datasets):
+        did = args.train_ids[i]
         dset = load_rb(dpath)
         # trim and set name of each dataset
-        dname = str(i) + '_' + ':'.join(dpath.split('/')[-1].split('.')[:-1])
+        dname = str(did) + '_' + ':'.join(dpath.split('/')[-1].split('.')[:-1])
         if split_test:
             cutoff = round(.9 * len(dset))
-            dsets_train.append([dname, dset[:cutoff]])
-            dsets_test.append([dname, dset[cutoff:]])
+            dsets_train.append([did, dname, dset[:cutoff]])
+            dsets_test.append([did, dname, dset[cutoff:]])
         else:
-            dsets_test.append([dname, dset])
+            dsets_test.append([did, dname, dset])
 
     # creating datasets
     test_set = TrialDataset(dsets_test, args)
