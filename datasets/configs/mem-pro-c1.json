@@ -1,13 +1,10 @@
 {
   "mode": "create",
-  "name": "mem-anti1",
+  "name": "mem-pro-c1",
   "config": null,
-  "t_type": "memory2anti",
+  "t_type": "memory-pro",
   "n_trials": 2000,
-  "task_args": [
-    "y",
-    "0"
-  ],
+  "task_args": [],
   "intervals": null,
   "angles": null,
   "t_len": 300,
@@ -15,8 +12,9 @@
   "stim_t": 100,
   "memory_t_min": -50,
   "memory_t_max": 100,
-  "y_mode": 0,
-  "argv": "tasks.py create mem-anti1 -t memory2anti -a y 0",
+  "y_channel": 1,
+  "fix_forever": false,
+  "argv": "tasks.py create mem-pro-c1 -t memory-pro",
   "L": 4,
   "Z": 6
 }

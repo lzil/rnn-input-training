@@ -96,9 +96,9 @@ class RSG(Task):
         y[0] = y0
         return y
 
-# modalities in: 1, 2, 3
-# modalities out: 1, 2, 3
-class DelayProAnti(Task):
+# modalities in: 0, 1, 2
+# modalities out: 0, 1, 2
+class Memory(Task):
     def __init__(self, args, dset_id=None, n=None):
         super().__init__(args.t_len, dset_id, n)
         if args.angles is None:
@@ -108,114 +108,40 @@ class DelayProAnti(Task):
         stimulus = [np.cos(theta), np.sin(theta)]
 
         self.t_type = args.t_type
-        assert self.t_type in ['delay-pro', 'delay-anti']
-        self.stimulus = stimulus
-        self.fix = args.fix_t
-        self.stim = self.fix + args.stim_t
-
-    def get_x(self, args=None):
-        x = np.zeros((4, self.t_len))
-        # 0 is fixation, the remainder are stimulus
-        x[1,:self.stim] = 1
-        x[2,self.fix:] = self.stimulus[0]
-        x[3,self.fix:] = self.stimulus[1]
-        if args is not None and args.x_noise != 0:
-            x = corrupt_x(args, x)
-        return x
-
-    def get_y(self, args=None):
-        y = np.zeros((4, self.t_len))
-        y[1,:self.stim] = 1
-        y[2,self.stim:] = self.stimulus[0]
-        y[3,self.stim:] = self.stimulus[1]
-        if self.t_type.endswith('anti'):
-            y[1:,] = -y[1:,]
-        return y
-
-# modalities in: 1, 2, 3
-# modalities out: 1, 2, 3
-class MemoryProAnti(Task):
-    def __init__(self, args, dset_id=None, n=None):
-        super().__init__(args.t_len, dset_id, n)
-        if args.angles is None:
-            theta = np.random.random() * 2 * np.pi
-        else:
-            theta = np.random.choice(args.angles) * np.pi / 180
-        stimulus = [np.cos(theta), np.sin(theta)]
-
-        self.t_type = args.t_type
-        assert self.t_type in ['memory-pro', 'memory-anti']
-        self.stimulus = stimulus
-        self.fix = args.fix_t
-        self.stim = self.fix + args.stim_t
-        self.memory = self.stim + args.memory_t
-
-    def get_x(self, args=None):
-        x = np.zeros((4, self.t_len))
-        x[1,:self.memory] = 1
-        x[2,self.fix:self.stim] = self.stimulus[0]
-        x[3,self.fix:self.stim] = self.stimulus[1]
-        # noisy up/down corruption
-        if args is not None and args.x_noise != 0:
-            x = corrupt_x(args, x)
-        return x
-
-    def get_y(self, args=None):
-        y = np.zeros((4, self.t_len))
-        y[1,:self.memory] = 1
-        y[2,self.memory:] = self.stimulus[0]
-        y[3,self.memory:] = self.stimulus[1]
-        # reversing output stimulus for anti condition
-        if self.t_type.endswith('anti'):
-            y[1:,] = -y[1:,]
-        return y
-
-# modalities in: 1, 2, 3
-# modalities out: 1, 2, 3
-class Memory2(Task):
-    def __init__(self, args, dset_id=None, n=None):
-        super().__init__(args.t_len, dset_id, n)
-        if args.angles is None:
-            theta = np.random.random() * 2 * np.pi
-        else:
-            theta = np.random.choice(args.angles) * np.pi / 180
-        stimulus = [np.cos(theta), np.sin(theta)]
-
-        self.t_type = args.t_type
-        assert 'memory2' in args.t_type
+        assert 'memory' in args.t_type
         self.stimulus = stimulus
         self.fix = args.fix_t
         self.stim = self.fix + args.stim_t
         self.memory = self.stim + np.random.randint(args.memory_t_min, args.memory_t_max)
 
-        self.y_mode = args.y_mode
-        self.fix_mode = args.fix_mode
+        self.y_channel = args.y_channel
+        self.fix_forever = args.fix_forever
 
     def get_x(self, args=None):
         x = np.zeros((4, self.t_len))
-        x[1,:self.memory] = 1
-        x[2,self.fix:self.stim] = self.stimulus[0]
-        x[3,self.fix:self.stim] = self.stimulus[1]
+        x[0,:self.memory] = 1
+        x[1,self.fix:self.stim] = self.stimulus[0]
+        x[2,self.fix:self.stim] = self.stimulus[1]
         # noisy up/down corruption
         if args is not None and args.x_noise != 0:
             x = corrupt_x(args, x)
         return x
 
     def get_y(self, args=None):
-        y = np.zeros((6, self.t_len))
-        if self.fix_mode == 0:
-            y[1,:self.memory] = 1
+        y = np.zeros((5, self.t_len))
+        if self.fix_forever == 0:
+            y[0,:self.memory] = 1
         else:
-            y[1] = 1
-        if self.y_mode == 0:
-            y[2,self.memory:] = self.stimulus[0]
-            y[3,self.memory:] = self.stimulus[1]
-        else:
-            y[4,self.memory:] = self.stimulus[0]
-            y[5,self.memory:] = self.stimulus[1]
+            y[0] = 1
+        if self.y_channel == 1:
+            y[1,self.memory:] = self.stimulus[0]
+            y[2,self.memory:] = self.stimulus[1]
+        elif self.y_channel == 2:
+            y[3,self.memory:] = self.stimulus[0]
+            y[4,self.memory:] = self.stimulus[1]
         # reversing output stimulus for anti condition
         if self.t_type.endswith('anti'):
-            y[2:,] = -y[2:,]
+            y[1:5,] = -y[1:5,]
         return y
 
 
@@ -238,24 +164,10 @@ def create_dataset(args):
     if t_type.startswith('rsg'):
         assert args.max_ready + args.max_t + int(args.max_t * args.gain) < args.t_len
         TaskObj = RSG
-    elif t_type.startswith('csg'):
-        TaskObj = CSG
-    elif t_type == 'delay-copy':
-        TaskObj = DelayCopy
     elif t_type == 'flip-flop':
         TaskObj = FlipFlop
-    elif t_type == 'delay-pro' or t_type == 'delay-anti':
-        assert args.fix_t + args.stim_t < args.t_len
-        TaskObj = DelayProAnti
-    elif t_type == 'memory-pro' or t_type == 'memory-anti':
-        assert args.fix_t + args.stim_t + args.memory_t < args.t_len
-        TaskObj = MemoryProAnti
-    elif t_type == 'dur-disc':
-        assert args.tau + args.max_d <= args.sep_t
-        assert args.sep_t + args.tau + args.max_d <= args.cue_t
-        TaskObj = DurationDisc
-    elif 'memory2' in t_type:
-        TaskObj = Memory2
+    elif 'memory' in t_type:
+        TaskObj = Memory
     else:
         raise NotImplementedError
 
@@ -285,15 +197,6 @@ def get_task_args(args):
             targs.max_t = max(args.intervals)
             targs.min_t = min(args.intervals)
 
-    elif args.t_type.startswith('csg'):
-        targs.t_len = get_tval(tarr, 'l', 600, int)
-        targs.p_len = get_tval(tarr, 'pl', 5, int)
-        targs.max_cue = get_tval(tarr, 'max_cue', 100, int)
-        targs.max_set = get_tval(tarr, 'max_set', 300, int)
-        if args.intervals is None:
-            targs.min_t = get_tval(tarr, 'gt', targs.p_len * 4, int)
-            targs.max_t = get_tval(tarr, 'lt', targs.t_len // 2 - targs.p_len * 4, int)
-
     elif args.t_type == 'delay-copy':
         targs.t_len = get_tval(tarr, 'l', 500, int)
         targs.dim = get_tval(tarr, 'dim', 2, int)
@@ -307,34 +210,14 @@ def get_task_args(args):
         targs.p_len = get_tval(tarr, 'pl', 5, int)
         targs.geop = get_tval(tarr, 'p', .02, float)
 
-    elif args.t_type == 'delay-pro' or args.t_type == 'delay-anti':
-        targs.t_len = get_tval(tarr, 'l', 300, int)
-        targs.fix_t = get_tval(tarr, 'fix', 50, int)
-        targs.stim_t = get_tval(tarr, 'stim', 150, int)
-
-    elif args.t_type == 'memory-pro' or args.t_type == 'memory-anti':
-        targs.t_len = get_tval(tarr, 'l', 300, int)
-        targs.fix_t = get_tval(tarr, 'fix', 50, int)
-        targs.stim_t = get_tval(tarr, 'stim', 100, int)
-        targs.memory_t = get_tval(tarr, 'memory', 50, int)
-
-    elif 'memory2' in args.t_type:
+    elif 'memory' in args.t_type:
         targs.t_len = get_tval(tarr, 'l', 300, int)
         targs.fix_t = get_tval(tarr, 'fix', 50, int)
         targs.stim_t = get_tval(tarr, 'stim', 100, int)
         targs.memory_t_min = get_tval(tarr, 'memory_min', -50, int)
         targs.memory_t_max = get_tval(tarr, 'memory_max', 100, int)
-        targs.y_mode = get_tval(tarr, 'y', 0, int)
-        targs.fix_mode = get_tval(tarr, 'f', 0, int)
-
-    elif args.t_type == 'dur-disc':
-        targs.t_len = get_tval(tarr, 'l', 600, int)
-        targs.tau = get_tval(tarr, 'tau', 10, int)
-        targs.min_d = get_tval(tarr, 'gt', 10, int)
-        targs.max_d = get_tval(tarr, 'lt', 80, int)
-        targs.sep_t = get_tval(tarr, 'sep_t', 150, int)
-        targs.cue_t = get_tval(tarr, 'cue_t', 400, int)
-        targs.select_t = get_tval(tarr, 'select_t', 440, int)
+        targs.y_channel = get_tval(tarr, 'y', 1, int)
+        targs.fix_forever = get_tval(tarr, 'ff', False, bool)
 
     return targs
 
@@ -372,7 +255,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', default=None, help='create from a config file')
 
     # general dataset arguments
-    parser.add_argument('-t', '--t_type', default='rsg', help='type of trial to create')
+    parser.add_argument('-t', '--t_type', default='memory', help='type of trial to create')
     parser.add_argument('-n', '--n_trials', type=int, default=2000)
 
     # task-specific arguments
@@ -424,38 +307,38 @@ if __name__ == '__main__':
             trial_x = trial.get_x()
             trial_y = trial.get_y()
 
-            if t_type in [RSG]:
-                trial_x = np.sum(trial_x, axis=0)
-                trial_y = trial_y[0]
-                ml, sl, bl = ax.stem(xr, trial_x, use_line_collection=True, linefmt='coral', label='ready/set')
-                ml.set_markerfacecolor('coral')
-                ml.set_markeredgecolor('coral')
-                if t_type == 'rsg-bin':
-                    ml, sl, bl = ax.stem(xr, [1], use_line_collection=True, linefmt='dodgerblue', label='go')
-                    ml.set_markerfacecolor('dodgerblue')
-                    ml.set_markeredgecolor('dodgerblue')
-                else:
-                    ax.plot(xr, trial_y, color='dodgerblue', label='go', lw=2)
-                    if t_type is RSG:
-                        ax.set_title(f'{trial.rsg}: [{trial.t_o}, {trial.t_p}] ', fontsize=9)
+            # if t_type in [RSG]:
+            #     trial_x = np.sum(trial_x, axis=0)
+            #     trial_y = trial_y[0]
+            #     ml, sl, bl = ax.stem(xr, trial_x, use_line_collection=True, linefmt='coral', label='ready/set')
+            #     ml.set_markerfacecolor('coral')
+            #     ml.set_markeredgecolor('coral')
+            #     if t_type == 'rsg-bin':
+            #         ml, sl, bl = ax.stem(xr, [1], use_line_collection=True, linefmt='dodgerblue', label='go')
+            #         ml.set_markerfacecolor('dodgerblue')
+            #         ml.set_markeredgecolor('dodgerblue')
+            #     else:
+            #         ax.plot(xr, trial_y, color='dodgerblue', label='go', lw=2)
+            #         if t_type is RSG:
+            #             ax.set_title(f'{trial.rsg}: [{trial.t_o}, {trial.t_p}] ', fontsize=9)
 
-            elif t_type in [DelayProAnti, MemoryProAnti]:
-                ax.plot(xr, trial_x[1], color='grey', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_x[2], color='salmon', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_x[3], color='dodgerblue', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_y[1], color='grey', lw=1.5)
-                ax.plot(xr, trial_y[2], color='salmon', lw=1.5)
-                ax.plot(xr, trial_y[3], color='dodgerblue', lw=1.5)
+            # elif t_type in [DelayProAnti, MemoryProAnti]:
+            #     ax.plot(xr, trial_x[1], color='grey', lw=1, ls='--', alpha=.6)
+            #     ax.plot(xr, trial_x[2], color='salmon', lw=1, ls='--', alpha=.6)
+            #     ax.plot(xr, trial_x[3], color='dodgerblue', lw=1, ls='--', alpha=.6)
+            #     ax.plot(xr, trial_y[1], color='grey', lw=1.5)
+            #     ax.plot(xr, trial_y[2], color='salmon', lw=1.5)
+            #     ax.plot(xr, trial_y[3], color='dodgerblue', lw=1.5)
 
-            elif t_type is Memory2:
-                ax.plot(xr, trial_x[1], color='grey', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_x[2], color='salmon', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_x[3], color='dodgerblue', lw=1, ls='--', alpha=.6)
-                ax.plot(xr, trial_y[1], color='grey', lw=1.5)
-                ax.plot(xr, trial_y[2], color='salmon', lw=1.5)
-                ax.plot(xr, trial_y[3], color='dodgerblue', lw=1.5)
-                ax.plot(xr, trial_y[4], color='coral', lw=1.5)
-                ax.plot(xr, trial_y[5], color='skyblue', lw=1.5)
+            if t_type is Memory:
+                ax.plot(xr, trial_x[0], color='grey', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_x[1], color='salmon', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_x[2], color='dodgerblue', lw=1, ls='--', alpha=.6)
+                ax.plot(xr, trial_y[0], color='grey', lw=1.5)
+                ax.plot(xr, trial_y[1], color='salmon', lw=1.5)
+                ax.plot(xr, trial_y[2], color='dodgerblue', lw=1.5)
+                ax.plot(xr, trial_y[3], color='coral', lw=1.5)
+                ax.plot(xr, trial_y[4], color='skyblue', lw=1.5)
 
         handles, labels = ax.get_legend_handles_labels()
         #fig.legend(handles, labels, loc='lower center')

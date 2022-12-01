@@ -1,14 +1,14 @@
 {
   "mode": "create",
-  "name": "mem-pro1f1",
+  "name": "mem-pro-c1-ff",
   "config": null,
-  "t_type": "memory2pro",
+  "t_type": "memory-pro",
   "n_trials": 2000,
   "task_args": [
     "y",
-    "0",
-    "f",
-    "0"
+    "1",
+    "ff",
+    "True"
   ],
   "intervals": null,
   "angles": null,
@@ -17,9 +17,9 @@
   "stim_t": 100,
   "memory_t_min": -50,
   "memory_t_max": 100,
-  "y_mode": 0,
-  "fix_mode": 0,
-  "argv": "tasks.py create mem-pro1f1 -t memory2pro -a y 0 f 0",
+  "y_channel": 1,
+  "fix_forever": true,
+  "argv": "tasks.py create mem-pro-c1-ff -t memory-pro -a y 1 ff True",
   "L": 4,
   "Z": 6
 }

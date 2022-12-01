@@ -1,12 +1,14 @@
 {
   "mode": "create",
-  "name": "mem-pro2",
+  "name": "mem-anti-c2-ff",
   "config": null,
-  "t_type": "memory2pro",
+  "t_type": "memory-anti",
   "n_trials": 2000,
   "task_args": [
     "y",
-    "1"
+    "2",
+    "ff",
+    "True"
   ],
   "intervals": null,
   "angles": null,
@@ -15,8 +17,9 @@
   "stim_t": 100,
   "memory_t_min": -50,
   "memory_t_max": 100,
-  "y_mode": 1,
-  "argv": "tasks.py create mem-pro2 -t memory2pro -a y 1",
+  "y_channel": 2,
+  "fix_forever": true,
+  "argv": "tasks.py create mem-anti-c2-ff -t memory-anti -a y 2 ff True",
   "L": 4,
   "Z": 6
 }
